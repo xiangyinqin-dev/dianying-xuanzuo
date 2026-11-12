@@ -463,23 +463,37 @@ function draw(t){
     }
     ctx.beginPath(); ctx.moveTo(stl.x,stl.y); ctx.lineTo(str.x,str.y); ctx.lineTo(sbr.x,sbr.y); ctx.lineTo(sbl.x,sbl.y); ctx.closePath();
     ctx.fillStyle = '#000'; ctx.fill();
-    ctx.save();
-    ctx.setTransform(str.x-stl.x, str.y-stl.y, sbl.x-stl.x, sbl.y-stl.y, stl.x, stl.y);
+    // 把电影画面按透视网格贴到银幕上（侧座也不会歪出屏幕）
     drawMovie(t);
-    ctx.restore();
+    const mCols = 10, mRows = 6;
+    for(let j=0;j<mRows;j++){
+      for(let i=0;i<mCols;i++){
+        const wx0 = -sw/2 + i*sw/mCols, wx1 = -sw/2 + (i+1)*sw/mCols;
+        const wy1 = sh - j*sh/mRows, wy0 = sh - (j+1)*sh/mRows; // 世界坐标 y 向上
+        const a=P({x:wx0,y:wy1,z:0}), b=P({x:wx1,y:wy1,z:0}),
+              c=P({x:wx1,y:wy0,z:0}), d=P({x:wx0,y:wy0,z:0});
+        if(!a||!b||!c||!d) continue;
+        const sx = i*movieCv.width/mCols  - (i>0 ? 0.5 : 0);
+        const sy = j*movieCv.height/mRows - (j>0 ? 0.5 : 0);
+        const sww = movieCv.width/mCols  + (i>0?0.5:0) + (i<mCols-1?0.5:0);
+        const shh = movieCv.height/mRows + (j>0?0.5:0) + (j<mRows-1?0.5:0);
+        ctx.save();
+        ctx.setTransform(b.x-a.x, b.y-a.y, d.x-a.x, d.y-a.y, a.x, a.y);
+        ctx.drawImage(movieCv, sx, sy, sww, shh, 0, 0, 1, 1);
+        ctx.restore();
+      }
+    }
     ctx.beginPath(); ctx.moveTo(stl.x,stl.y); ctx.lineTo(str.x,str.y); ctx.lineTo(sbr.x,sbr.y); ctx.lineTo(sbl.x,sbl.y); ctx.closePath();
     ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1; ctx.stroke();
   }
 
-  // 前排座位（从远到近）：近处画立体座椅，远处画成排剪影
+  // 前排座位（从远到近）：近处画立体座椅，远处画成排剪影（全部实心不透明，距离用明暗表现）
   const gap = hall.aisle ? 0.9 : 0;
   const blockW = hall.cols * hall.pitch;
   const seatW = hall.pitch * 0.76;
   const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
-  const hexA = (hex,a) => {
-    const n = parseInt(hex.slice(1), 16);
-    return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
-  };
+  const acc = (() => { const n = parseInt(hall.accent.slice(1),16); return [(n>>16)&255,(n>>8)&255,n&255]; })();
+  const shadeC = (c,k) => `rgb(${Math.round(c[0]*k)},${Math.round(c[1]*k)},${Math.round(c[2]*k)})`;
   const q = (p1,p2,p3,p4,fill) => {
     const a=P(p1), b=P(p2), c=P(p3), d=P(p4);
     if(!a||!b||!c||!d) return;
@@ -492,34 +506,44 @@ function draw(t){
     ctx.strokeStyle = color; ctx.lineWidth = lw;
     ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
   };
-  const drawSeat = (x0,x1,yB,z,fade) => {
-    // 椅背（面向观众，略微后仰）
-    q({x:x0,y:yB+0.42,z:z-0.26},{x:x1,y:yB+0.42,z:z-0.26},
-      {x:x1,y:yB+0.88,z:z-0.40},{x:x0,y:yB+0.88,z:z-0.40},
-      `rgba(24,31,58,${fade})`);
-    // 头枕顶面（银幕光轮廓，按厅型配色）
-    q({x:x0,y:yB+0.88,z:z-0.40},{x:x1,y:yB+0.88,z:z-0.40},
-      {x:x1,y:yB+0.88,z:z-0.30},{x:x0,y:yB+0.88,z:z-0.30},
-      hexA(hall.accent, 0.40*fade));
+  const drawSeat = (x0,x1,yB,z,k) => {
+    const back  = shadeC([35,44,78],  k);   // 椅背
+    const cush  = shadeC([51,64,110], k);   // 坐垫顶
+    const cF    = shadeC([26,33,56],  k);   // 坐垫前脸
+    const base  = shadeC([20,26,44],  k);   // 底座
+    const arm   = shadeC([58,72,120], k);   // 扶手顶
+    const armS  = shadeC([29,37,64],  k);   // 扶手侧脸
+    const rim   = shadeC(acc, k);           // 头枕轮廓光（按厅型配色）
+    // 底座前脸
+    q({x:x0,y:yB,z:z+0.24},{x:x1,y:yB,z:z+0.24},
+      {x:x1,y:yB+0.33,z:z+0.24},{x:x0,y:yB+0.33,z:z+0.24}, base);
+    // 坐垫前脸
+    q({x:x0,y:yB+0.33,z:z+0.27},{x:x1,y:yB+0.33,z:z+0.27},
+      {x:x1,y:yB+0.42,z:z+0.27},{x:x0,y:yB+0.42,z:z+0.27}, cF);
     // 坐垫顶面
     q({x:x0+0.015,y:yB+0.42,z:z-0.26},{x:x1-0.015,y:yB+0.42,z:z-0.26},
-      {x:x1-0.015,y:yB+0.42,z:z+0.27},{x:x0+0.015,y:yB+0.42,z:z+0.27},
-      `rgba(40,50,88,${fade})`);
+      {x:x1-0.015,y:yB+0.42,z:z+0.27},{x:x0+0.015,y:yB+0.42,z:z+0.27}, cush);
+    // 椅背（面向观众，后仰）
+    q({x:x0,y:yB+0.42,z:z-0.26},{x:x1,y:yB+0.42,z:z-0.26},
+      {x:x1,y:yB+0.88,z:z-0.40},{x:x0,y:yB+0.88,z:z-0.40}, back);
+    // 头枕顶面（略宽于椅背，银幕光打出的轮廓）
+    q({x:x0-0.01,y:yB+0.88,z:z-0.40},{x:x1+0.01,y:yB+0.88,z:z-0.40},
+      {x:x1+0.01,y:yB+0.88,z:z-0.30},{x:x0-0.01,y:yB+0.88,z:z-0.30}, rim);
     // 坐垫前沿亮线
     seg({x:x0,y:yB+0.42,z:z+0.27},{x:x1,y:yB+0.42,z:z+0.27},
-      `rgba(150,175,235,${0.22*fade})`, 1);
+      `rgba(190,210,255,${0.15 + 0.45*k})`, 1);
     // 扶手（最近几排才画）
-    if(fade > 0.55){
+    if(k > 0.6){
       for(const ax of [x0-0.03, x1+0.03]){
-        q({x:ax-0.05,y:yB+0.42,z:z+0.05},{x:ax+0.05,y:yB+0.42,z:z+0.05},
-          {x:ax+0.05,y:yB+0.42,z:z+0.30},{x:ax-0.05,y:yB+0.42,z:z+0.30},
-          `rgba(30,39,68,${fade})`);
-        q({x:ax-0.05,y:yB+0.60,z:z+0.05},{x:ax+0.05,y:yB+0.60,z:z+0.05},
-          {x:ax+0.05,y:yB+0.60,z:z+0.30},{x:ax-0.05,y:yB+0.60,z:z+0.30},
-          `rgba(47,58,100,${fade})`);
+        // 扶手后脸（面向观众）
         q({x:ax-0.05,y:yB+0.42,z:z+0.30},{x:ax+0.05,y:yB+0.42,z:z+0.30},
-          {x:ax+0.05,y:yB+0.60,z:z+0.30},{x:ax-0.05,y:yB+0.60,z:z+0.30},
-          `rgba(17,23,42,${fade})`);
+          {x:ax+0.05,y:yB+0.60,z:z+0.30},{x:ax-0.05,y:yB+0.60,z:z+0.30}, armS);
+        // 扶手顶面
+        q({x:ax-0.05,y:yB+0.60,z:z+0.05},{x:ax+0.05,y:yB+0.60,z:z+0.05},
+          {x:ax+0.05,y:yB+0.60,z:z+0.30},{x:ax-0.05,y:yB+0.60,z:z+0.30}, arm);
+        // 扶手前脸（面向银幕）
+        q({x:ax-0.05,y:yB+0.42,z:z+0.05},{x:ax+0.05,y:yB+0.42,z:z+0.05},
+          {x:ax+0.05,y:yB+0.60,z:z+0.05},{x:ax-0.05,y:yB+0.60,z:z+0.05}, armS);
       }
     }
   };
@@ -529,24 +553,25 @@ function draw(t){
     const mid = P({x:0, y:yB+0.7, z});
     const dist = mid ? mid.zc : 99;
     if(dist >= 6){
-      // 远景：整排剪影（椅背 + 头枕亮边 + 坐垫亮带）
+      // 远景：整排实心剪影（椅背 + 头枕轮廓 + 坐垫亮带）
+      const k2 = clamp(0.75 - dist/16, 0.28, 0.75);
       const band = (x0,x1) => {
         q({x:x0,y:yB+0.42,z:z-0.26},{x:x1,y:yB+0.42,z:z-0.26},
-          {x:x1,y:yB+0.88,z:z-0.40},{x:x0,y:yB+0.88,z:z-0.40}, '#131828');
+          {x:x1,y:yB+0.88,z:z-0.40},{x:x0,y:yB+0.88,z:z-0.40}, shadeC([35,44,78], k2));
         q({x:x0,y:yB+0.88,z:z-0.40},{x:x1,y:yB+0.88,z:z-0.40},
-          {x:x1,y:yB+0.88,z:z-0.30},{x:x0,y:yB+0.88,z:z-0.30}, hexA(hall.accent, 0.10));
+          {x:x1,y:yB+0.88,z:z-0.30},{x:x0,y:yB+0.88,z:z-0.30}, shadeC(acc, k2*0.9));
         q({x:x0,y:yB+0.42,z:z-0.26},{x:x1,y:yB+0.42,z:z-0.26},
-          {x:x1,y:yB+0.42,z:z+0.27},{x:x0,y:yB+0.42,z:z+0.27}, 'rgba(36,46,80,0.55)');
+          {x:x1,y:yB+0.42,z:z+0.27},{x:x0,y:yB+0.42,z:z+0.27}, shadeC([51,64,110], k2));
       };
       if(gap){ band(-blockW/2,-gap/2); band(gap/2,blockW/2); }
       else band(-blockW/2, blockW/2);
     }else{
       // 近景：逐座立体渲染
-      const fade = clamp(1.25 - dist/7, 0.25, 1);
+      const k = clamp(1.25 - dist/9, 0.35, 1);
       for(let j=0;j<hall.cols;j++){
         const cx = -blockW/2 + (j+0.5)*hall.pitch;
         if(gap && Math.abs(cx) < gap/2) continue;
-        drawSeat(cx - seatW/2, cx + seatW/2, yB, z, fade);
+        drawSeat(cx - seatW/2, cx + seatW/2, yB, z, k);
       }
     }
   }
@@ -568,63 +593,69 @@ function draw(t){
 }
 
 /* 银幕上的"电影画面"（单位坐标系） */
+/* 银幕上的"电影画面"：先画到离屏画布，再按透视网格贴到银幕上 */
+const movieCv = document.createElement('canvas');
+movieCv.width = 384; movieCv.height = 216;
+const mctx = movieCv.getContext('2d');
 const starCache = {};
 function drawMovie(t){
   const hall = pvHall;
+  const MW = movieCv.width, MH = movieCv.height;
+  mctx.setTransform(1,0,0,1,0,0);
   if(!starCache[hall.key]){
     const r = rng(hash('stars-' + hall.key));
     starCache[hall.key] = {
-      stars: Array.from({length:60}, () => ({x:r(), y:r()*0.32, ph:r()*6.283, sp:0.6+r()*2.2, s:0.002+r()*0.004})),
-      clouds: Array.from({length:4}, () => ({x:r(), y:0.40+r()*0.32, w:0.25+r()*0.30, h:0.05+r()*0.05}))
+      stars: Array.from({length:60}, () => ({x:r()*MW, y:r()*MH*0.32, ph:r()*6.283, sp:0.6+r()*2.2, s:0.6+r()*1.2})),
+      clouds: Array.from({length:4}, () => ({x:r()*MW, y:MH*(0.40+r()*0.32), w:MW*(0.10+r()*0.14), h:MH*(0.05+r()*0.05)}))
     };
   }
   const st = starCache[hall.key];
   // 晚霞天空（明亮）
-  const sky = ctx.createLinearGradient(0,0,0,1);
+  const sky = mctx.createLinearGradient(0,0,0,MH);
   sky.addColorStop(0,'#2b1a5e'); sky.addColorStop(0.45,'#8a3a8f');
   sky.addColorStop(0.75,'#e0657f'); sky.addColorStop(0.95,'#ffb46b');
-  ctx.fillStyle = sky; ctx.fillRect(0,0,1,1);
+  mctx.fillStyle = sky; mctx.fillRect(0,0,MW,MH);
   // 星星
-  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  mctx.fillStyle = 'rgba(255,255,255,0.9)';
   for(const s of st.stars){
-    ctx.globalAlpha = 0.2 + 0.7*(0.5 + 0.5*Math.sin(t*s.sp + s.ph));
-    ctx.fillRect(s.x, s.y, s.s, s.s);
+    mctx.globalAlpha = 0.2 + 0.7*(0.5 + 0.5*Math.sin(t*s.sp + s.ph));
+    mctx.fillRect(s.x, s.y, s.s, s.s);
   }
-  ctx.globalAlpha = 1;
+  mctx.globalAlpha = 1;
   // 云霞
-  ctx.fillStyle = 'rgba(255,220,190,0.16)';
+  mctx.fillStyle = 'rgba(255,220,190,0.16)';
   for(const c of st.clouds){
-    ctx.beginPath(); ctx.ellipse(c.x, c.y, c.w/2, c.h/2, 0, 0, 6.2832); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(c.x + c.w*0.22, c.y - c.h*0.5, c.w*0.28, c.h*0.4, 0, 0, 6.2832); ctx.fill();
+    mctx.beginPath(); mctx.ellipse(c.x, c.y, c.w/2, c.h/2, 0, 0, 6.2832); mctx.fill();
+    mctx.beginPath(); mctx.ellipse(c.x + c.w*0.22, c.y - c.h*0.5, c.w*0.28, c.h*0.4, 0, 0, 6.2832); mctx.fill();
   }
   // 落日
-  const sg = ctx.createRadialGradient(0.62,0.30,0,0.62,0.30,0.20);
+  const sg = mctx.createRadialGradient(MW*0.62, MH*0.30, 0, MW*0.62, MH*0.30, MH*0.20);
   sg.addColorStop(0,'rgba(255,240,200,0.9)'); sg.addColorStop(0.35,'rgba(255,190,120,0.45)'); sg.addColorStop(1,'rgba(255,190,120,0)');
-  ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(0.62,0.30,0.20,0,6.2832); ctx.fill();
-  ctx.fillStyle = '#fff3d6'; ctx.beginPath(); ctx.arc(0.62,0.30,0.055,0,6.2832); ctx.fill();
+  mctx.fillStyle = sg; mctx.beginPath(); mctx.arc(MW*0.62, MH*0.30, MH*0.20, 0, 6.2832); mctx.fill();
+  mctx.fillStyle = '#fff3d6'; mctx.beginPath(); mctx.arc(MW*0.62, MH*0.30, MH*0.055, 0, 6.2832); mctx.fill();
   // 远山与近山
-  ridge('#6a2f7e', [[0,0.82],[0.12,0.60],[0.26,0.76],[0.40,0.56],[0.54,0.74],[0.70,0.58],[0.84,0.72],[1,0.62]]);
-  ridge('#2b1648', [[0,0.95],[0.18,0.74],[0.36,0.90],[0.52,0.72],[0.68,0.88],[0.82,0.76],[1,0.86]]);
+  ridge2('#6a2f7e', [[0,0.82],[0.12,0.60],[0.26,0.76],[0.40,0.56],[0.54,0.74],[0.70,0.58],[0.84,0.72],[1,0.62]]);
+  ridge2('#2b1648', [[0,0.95],[0.18,0.74],[0.36,0.90],[0.52,0.72],[0.68,0.88],[0.82,0.76],[1,0.86]]);
   // 带环星球
-  ctx.strokeStyle = 'rgba(255,225,190,0.85)'; ctx.lineWidth = 0.012;
-  ctx.beginPath(); ctx.ellipse(0.26,0.52,0.20,0.055,-0.38,0,6.2832); ctx.stroke();
-  ctx.fillStyle = '#1d0f38'; ctx.beginPath(); ctx.arc(0.26,0.52,0.10,0,6.2832); ctx.fill();
+  mctx.strokeStyle = 'rgba(255,225,190,0.85)'; mctx.lineWidth = 2.5;
+  mctx.beginPath(); mctx.ellipse(MW*0.26, MH*0.52, MW*0.09, MH*0.055, -0.38, 0, 6.2832); mctx.stroke();
+  mctx.fillStyle = '#1d0f38'; mctx.beginPath(); mctx.arc(MW*0.26, MH*0.52, MH*0.10, 0, 6.2832); mctx.fill();
   // 片名（带光晕）
-  ctx.textAlign = 'center';
-  ctx.fillStyle = 'rgba(255,255,255,0.35)';
-  ctx.font = '700 0.068px "PingFang SC","Microsoft YaHei",sans-serif';
-  ctx.fillText('星际漫游', 0.502, 0.845);
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText('星际漫游', 0.5, 0.842);
-  ctx.fillStyle = 'rgba(255,235,210,0.75)';
-  ctx.font = '500 0.028px "PingFang SC","Microsoft YaHei",sans-serif';
-  ctx.fillText('正 在 放 映', 0.5, 0.925);
+  mctx.textAlign = 'center';
+  mctx.fillStyle = 'rgba(255,255,255,0.35)';
+  mctx.font = '700 15px "PingFang SC","Microsoft YaHei",sans-serif';
+  mctx.fillText('星际漫游', MW*0.502, MH*0.845);
+  mctx.fillStyle = '#ffffff';
+  mctx.fillText('星际漫游', MW*0.5, MH*0.842);
+  mctx.fillStyle = 'rgba(255,235,210,0.75)';
+  mctx.font = '500 6.5px "PingFang SC","Microsoft YaHei",sans-serif';
+  mctx.fillText('正 在 放 映', MW*0.5, MH*0.925);
 }
-function ridge(color, pts){
-  ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
-  for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i][0], pts[i][1]);
-  ctx.lineTo(1,1); ctx.lineTo(0,1); ctx.closePath();
-  ctx.fillStyle = color; ctx.fill();
+function ridge2(color, pts){
+  mctx.beginPath(); mctx.moveTo(pts[0][0]*movieCv.width, pts[0][1]*movieCv.height);
+  for(let i=1;i<pts.length;i++) mctx.lineTo(pts[i][0]*movieCv.width, pts[i][1]*movieCv.height);
+  mctx.lineTo(movieCv.width, movieCv.height); mctx.lineTo(0, movieCv.height); mctx.closePath();
+  mctx.fillStyle = color; mctx.fill();
 }
 
 /* ========== 启动 ========== */

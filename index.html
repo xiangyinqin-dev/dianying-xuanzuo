@@ -117,13 +117,13 @@ body{min-height:100%;background:radial-gradient(900px 480px at 50% -8%,#232b52 0
 /* ========== 厅型配置 ========== */
 const HALLS = [
   {key:'da', name:'大厅', cols:20, rows:14, aisle:true,  couple:false, price:49,
-   info:'280座 · 中央过道 · 杜比全景声', screenW:16, screenH:7.2, pitch:0.55, rowGap:1.15, z0:6.0, riser:0.33, ceil:7.5, accent:'#e8b45a'},
+   info:'280座 · 中央过道 · 杜比全景声', screenW:13, screenH:5.85, pitch:0.55, rowGap:1.15, z0:7.5, riser:0.33, ceil:7.5, accent:'#e8b45a'},
   {key:'zhong', name:'中厅', cols:12, rows:10, aisle:false, couple:false, price:45,
-   info:'120座 · 激光巨幕 · 环绕声', screenW:11, screenH:5.2, pitch:0.58, rowGap:1.1, z0:5.0, riser:0.32, ceil:6.0, accent:'#6a8dff'},
+   info:'120座 · 激光巨幕 · 环绕声', screenW:10, screenH:4.8, pitch:0.58, rowGap:1.1, z0:5.5, riser:0.32, ceil:6.0, accent:'#6a8dff'},
   {key:'xiao', name:'小厅', cols:8, rows:7, aisle:false, couple:false, price:39,
-   info:'56座 · 舒适小厅 · 私密观影', screenW:8, screenH:4.0, pitch:0.6, rowGap:1.0, z0:4.0, riser:0.30, ceil:5.2, accent:'#59d6b8'},
+   info:'56座 · 舒适小厅 · 私密观影', screenW:7, screenH:3.6, pitch:0.6, rowGap:1.0, z0:4.5, riser:0.30, ceil:5.2, accent:'#59d6b8'},
   {key:'ql', name:'情侣厅', cols:7, rows:8, aisle:false, couple:true, price:99,
-   info:'56座 · 双人沙发 · 情侣专享', screenW:9, screenH:4.6, pitch:1.15, rowGap:1.5, z0:4.5, riser:0.34, ceil:5.6, accent:'#ff7ab8'},
+   info:'56座 · 双人沙发 · 情侣专享', screenW:8, screenH:4.2, pitch:1.15, rowGap:1.5, z0:5.5, riser:0.34, ceil:5.6, accent:'#ff7ab8'},
 ];
 const hallBy = k => HALLS.find(h => h.key === k);
 const $ = s => document.querySelector(s);
@@ -310,13 +310,14 @@ function draw(t){
   const W = innerWidth, H = innerHeight;
   const hall = pvHall; if(!hall) return;
   const sw = hall.screenW, sh = hall.screenH;
-  const f = H * 1.05;
+  const f = H * 0.75; // 广角视野：银幕完整可见，四周留出影厅环境
+  const sy0 = 0.9;    // 银幕底边离地高度（挂在墙面上）
 
   // 相机：坐在所选座位上，看向银幕中心
   const seatX = (pvC+0.5)*hall.pitch - hall.cols*hall.pitch/2;
   const seatZ = hall.z0 + pvR*hall.rowGap + 0.3;
   const C = {x:seatX, y:pvR*hall.riser + 1.12, z:seatZ};
-  const T = {x:0, y:sh*0.62, z:0};
+  const T = {x:0, y:sy0 + sh*0.62, z:0};
   const fwd = norm(sub(T,C));
   const right = norm(cross(fwd, {x:0,y:1,z:0}));
   const up = cross(right, fwd);
@@ -336,10 +337,10 @@ function draw(t){
   const zb = hall.z0 + hall.rows*hall.rowGap + 0.8;
 
   // 银幕四角（背光与屏幕共用）
-  const stl=P({x:-sw/2,y:sh,z:0}), str=P({x:sw/2,y:sh,z:0}),
-        sbl=P({x:-sw/2,y:0,z:0}),  sbr=P({x:sw/2,y:0,z:0});
+  const stl=P({x:-sw/2,y:sy0+sh,z:0}), str=P({x:sw/2,y:sy0+sh,z:0}),
+        sbl=P({x:-sw/2,y:sy0,z:0}),    sbr=P({x:sw/2,y:sy0,z:0});
   // 银幕背光（紧贴屏幕边缘，避免照到整面墙）
-  const sc = P({x:0, y:sh*0.5, z:0});
+  const sc = P({x:0, y:sy0+sh*0.5, z:0});
   if(sc && stl && sbr){
     ctx.globalCompositeOperation = 'screen';
     const rad = Math.max(Math.hypot(stl.x-sc.x, stl.y-sc.y)*1.15, 90);
@@ -453,9 +454,9 @@ function draw(t){
 
   // 银幕（带金属边框的独立屏幕）
   if(stl&&str&&sbl&&sbr){
-    const ext = 0.22;
-    const f1=P({x:-sw/2-ext,y:sh+ext,z:0}), f2=P({x:sw/2+ext,y:sh+ext,z:0}),
-          f3=P({x:sw/2+ext,y:-ext,z:0}),   f4=P({x:-sw/2-ext,y:-ext,z:0});
+    const ext = 0.40;
+    const f1=P({x:-sw/2-ext,y:sy0+sh+ext,z:0}), f2=P({x:sw/2+ext,y:sy0+sh+ext,z:0}),
+          f3=P({x:sw/2+ext,y:sy0-ext,z:0}),     f4=P({x:-sw/2-ext,y:sy0-ext,z:0});
     if(f1&&f2&&f3&&f4){
       ctx.beginPath(); ctx.moveTo(f1.x,f1.y); ctx.lineTo(f2.x,f2.y); ctx.lineTo(f3.x,f3.y); ctx.lineTo(f4.x,f4.y); ctx.closePath();
       ctx.fillStyle = '#39456e'; ctx.fill();
@@ -469,7 +470,7 @@ function draw(t){
     for(let j=0;j<mRows;j++){
       for(let i=0;i<mCols;i++){
         const wx0 = -sw/2 + i*sw/mCols, wx1 = -sw/2 + (i+1)*sw/mCols;
-        const wy1 = sh - j*sh/mRows, wy0 = sh - (j+1)*sh/mRows; // 世界坐标 y 向上
+        const wy1 = sy0 + sh - j*sh/mRows, wy0 = sy0 + sh - (j+1)*sh/mRows; // 世界坐标 y 向上
         const a=P({x:wx0,y:wy1,z:0}), b=P({x:wx1,y:wy1,z:0}),
               c=P({x:wx1,y:wy0,z:0}), d=P({x:wx0,y:wy0,z:0});
         if(!a||!b||!c||!d) continue;

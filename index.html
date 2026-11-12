@@ -117,13 +117,13 @@ body{min-height:100%;background:radial-gradient(900px 480px at 50% -8%,#232b52 0
 /* ========== 厅型配置 ========== */
 const HALLS = [
   {key:'da', name:'大厅', cols:20, rows:14, aisle:true,  couple:false, price:49,
-   info:'280座 · 中央过道 · 杜比全景声', screenW:16, screenH:7.2, pitch:0.55, rowGap:1.15, z0:3.2, riser:0.33, ceil:7.5, accent:'#e8b45a'},
+   info:'280座 · 中央过道 · 杜比全景声', screenW:16, screenH:7.2, pitch:0.55, rowGap:1.15, z0:6.0, riser:0.33, ceil:7.5, accent:'#e8b45a'},
   {key:'zhong', name:'中厅', cols:12, rows:10, aisle:false, couple:false, price:45,
-   info:'120座 · 激光巨幕 · 环绕声', screenW:11, screenH:5.2, pitch:0.58, rowGap:1.1, z0:3.0, riser:0.32, ceil:6.0, accent:'#6a8dff'},
+   info:'120座 · 激光巨幕 · 环绕声', screenW:11, screenH:5.2, pitch:0.58, rowGap:1.1, z0:5.0, riser:0.32, ceil:6.0, accent:'#6a8dff'},
   {key:'xiao', name:'小厅', cols:8, rows:7, aisle:false, couple:false, price:39,
-   info:'56座 · 舒适小厅 · 私密观影', screenW:8, screenH:4.0, pitch:0.6, rowGap:1.0, z0:2.6, riser:0.30, ceil:5.2, accent:'#59d6b8'},
+   info:'56座 · 舒适小厅 · 私密观影', screenW:8, screenH:4.0, pitch:0.6, rowGap:1.0, z0:4.0, riser:0.30, ceil:5.2, accent:'#59d6b8'},
   {key:'ql', name:'情侣厅', cols:7, rows:8, aisle:false, couple:true, price:99,
-   info:'56座 · 双人沙发 · 情侣专享', screenW:9, screenH:4.6, pitch:1.15, rowGap:1.5, z0:3.0, riser:0.34, ceil:5.6, accent:'#ff7ab8'},
+   info:'56座 · 双人沙发 · 情侣专享', screenW:9, screenH:4.6, pitch:1.15, rowGap:1.5, z0:4.5, riser:0.34, ceil:5.6, accent:'#ff7ab8'},
 ];
 const hallBy = k => HALLS.find(h => h.key === k);
 const $ = s => document.querySelector(s);
